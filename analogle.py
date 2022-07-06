@@ -47,7 +47,7 @@ def gameloop(model):
 	bestdifference = 0
 	bestguess = ''
 	attemptdifference = 0
-	print(difference) #flag
+	# print(difference) #flag
 	while True:
 		guess = input("Enter guess: ")
 		if guess == 'I give up':
@@ -66,7 +66,7 @@ def gameloop(model):
 		print("Incorrect, '{}' is to '{}' as '{}' is to '{}'.".format(word3,guess,word1,badguess))
 		print("'{}' is to '{}' as '{}' is to what?".format(word1.capitalize(),word2,word3))
 		attemptdifference = model.similarity(word3,guess)
-		print(attemptdifference) #flag
+		# print(attemptdifference) #flag
 		if num_guesses > 1:
 			if abs(difference - attemptdifference) < abs(difference - bestdifference):
 				print("Warmer. '{}' is your new best guess! Your previous best guess was '{}'.".format(guess.capitalize(),bestguess))
