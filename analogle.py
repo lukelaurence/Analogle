@@ -1,5 +1,7 @@
 from gensim.models import KeyedVectors
-import random
+import random, os.path
+import numpy as np
+from numpy.linalg import norm
 
 def createwordlist(is_hard=False):
 	"creates list of words from either wiktionary's corpus or 5000 most common"
@@ -19,16 +21,31 @@ def chooseword(lst,model,minlength,forbidden=[]):
 	else:
 		return chooseword(lst,model,minlength,forbidden)
 
-def xisto(wrdlst,model,word1,word2,word3,forbidlst=[]):
-	"given two words, finds the word most like a third word in the same way"
-	difference = model.similarity(word1,word2)
-	bestsimilarity = (0,'N/A')
-	for x in wrdlst:
-		if x not in forbidlst and x in model:
-			similarity = model.similarity(word3,x)
-			if abs(difference - similarity) < abs(difference - bestsimilarity[0]):
-				bestsimilarity = (similarity,x)
-	return bestsimilarity
+def cosine_similarity(vector1,vector2):
+	return np.dot(vector1,vector2)/(norm(vector1)*norm(vector2))
+
+def analogy(wrdlst,model,word1,word2,word3,forbidlst=[]):
+    "given two words, finds the word most like a third word in the same way"
+    difference = model.similarity(word1,word2)
+    bestsimilarity = (0,'N/A')
+    for x in wrdlst:
+        if x not in forbidlst and x in model:
+            similarity = model.similarity(word3,x)
+            if abs(difference - similarity) < abs(difference - bestsimilarity[0]):
+                bestsimilarity = (similarity,x)
+    return bestsimilarity
+
+
+# def analogy(wrdlst,model,word1,word2,word3,forbidlst=[]):
+# 	# forbidlst = [word1,word2,word3]
+# 	goalvector = model.get_mean_vector([word2,word3,word1],[1.,1.,-1.],pre_normalize=True,post_normalize=True,ignore_missing=False)
+# 	bestsimilarity = (0,'N/A')
+# 	for x in wrdlst:
+# 		if x not in forbidlst and x in model:
+# 			similarity = cosine_similarity(goalvector,model[x])
+# 			if similarity > bestsimilarity[0]:
+# 				bestsimilarity = (similarity,x)
+# 	return bestsimilarity
 
 def generatewords(wordlist,model,minlength):
 	"given a list of words and minlength, gives 2 pairs of unique words with the same relative similarity"
@@ -36,18 +53,18 @@ def generatewords(wordlist,model,minlength):
 	word1 = chooseword(wordlist,model,minlength,forbidden)
 	word2 = chooseword(wordlist,model,minlength,forbidden)
 	word3 = chooseword(wordlist,model,minlength,forbidden)
-	difference,word4 = xisto(wordlist,model,word1,word2,word3,forbidden)
+	difference,word4 = analogy(wordlist,model,word1,word2,word3,forbidden)
+	# return word1,word2,word3,word4,difference,model.similarity(word1,word2),model.similarity(word1,word4),model.similarity(word2,word4),model.similarity(word3,word4)
 	return word1,word2,word3,word4,difference
 
 def gameloop(model):
 	wordlist = createwordlist(input("Play in hardmode: y/n? ") == 'y')
 	word1,word2,word3,word4,difference = generatewords(wordlist,model,3)
-	print("'{}' is to '{}' as '{}' is to what?".format(word1.capitalize(),word2,word3))
+	print("'{}' is to '{}' as '{}' is to what? {}.".format(word1.capitalize(),word2,word3,difference))
 	num_guesses = 0
 	bestdifference = 0
 	bestguess = ''
 	attemptdifference = 0
-	# print(difference) #flag
 	while True:
 		guess = input("Enter guess: ")
 		if guess == 'I give up':
@@ -62,23 +79,22 @@ def gameloop(model):
 			guesses = 'guess' if num_guesses == 1 else "guesses"
 			print("You won in {} {}".format(num_guesses,guesses))
 			break
-		badguess = xisto(wordlist,model,word3,guess,word1)[1]
-		print("Incorrect, '{}' is to '{}' as '{}' is to '{}'.".format(word3,guess,word1,badguess))
-		print("'{}' is to '{}' as '{}' is to what?".format(word1.capitalize(),word2,word3))
+		badguess = analogy(wordlist,model,word3,guess,word1)[1]
 		attemptdifference = model.similarity(word3,guess)
-		# print(attemptdifference) #flag
+		print("'{}' is to '{}' as '{}' is to '{}'. {}.".format(word3.capitalize(),guess,word1,badguess,attemptdifference))
+		print("'{}' is to '{}' as '{}' is to what? {}.".format(word1.capitalize(),word2,word3,difference))
 		if num_guesses > 1:
 			if abs(difference - attemptdifference) < abs(difference - bestdifference):
 				print("Warmer. '{}' is your new best guess! Your previous best guess was '{}'.".format(guess.capitalize(),bestguess))
 				bestdifference,bestguess = attemptdifference,guess
 			else:
-				print("Colder. Your best guess is still '{}'.".format(bestguess))
+				print("Colder. Your best guess is still '{}'. {}.".format(bestguess,bestdifference))
 		else:
 			bestdifference,bestguess = attemptdifference,guess
 		# print("Guesses:",num_guesses)
 	return input("Play again: y/n? ") == 'y'
 
 if __name__ == "__main__":
-	model = KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin',binary=True)
+	model = KeyedVectors.load_word2vec_format(os.path.join(os.path.dirname(__file__),os.pardir,'GoogleNews-vectors-negative300.bin'),binary=True)
 	while gameloop(model):
 		pass
